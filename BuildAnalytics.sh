@@ -18,19 +18,30 @@
 # along with BuildAnalytics. If not, see <http://www.gnu.org/licenses/>.
 
 
-PROC_MODEL=$(cmd /proc/cpuinfo | grep "model name" | awk -F':' '{print $}' | head -n 1 | xargs)
-NUMBER_OF_PROCS=$(cmd /proc/cpuinfo | grep "physical id" | sort -u | wc -l)
+PROC_MODEL=$(grep "model name" /proc/cpuinfo | awk -F':' '{print $2}' | head -n 1 | xargs)
+NUMBER_OF_PROCS=$(grep "physical id" /proc/cpuinfo | sort -u | wc -l)
 
 DISTRO="Unix-like"
 
 if [ -f /etc/lsb-release ]; then
-    # shellcheck disable=SC1091
     . /etc/lsb-release
-    DISTRO=$DISTRIB_ID
+    DISTRO=$DISTRIB_DESCRIPTION
 elif [ -f /etc/debian_version ]; then
-    DISTRO="Debian"
+    DISTRO="Debian $(cat /etc/debian_version)"
 elif [ -f /etc/redhat-release ]; then
     DISTRO="Red Hat"
+elif [ -f /etc/SUSE-release ]; then
+    DISTRO="SUSE"
+elif [ -f /etc/fedora-release ]; then
+    DISTRO="Fedora"
+elif [ -f /etc/slackware-release ]; then
+    DISTRO="Slackware"
+elif [ -f /etc/mandrake-release ]; then
+    DISTRO="Mandrake"
+elif [ -f /etc/yellowdog-release ]; then
+    DISTRO="Yellow Dog"
+elif [ -f /etc/gentoo-release ]; then
+    DISTRO="Gentoo"
 else
     DISTRO=$(uname -s)
 fi
@@ -43,21 +54,31 @@ NUM_DISKS=$(lsblk -d -o name,rota | wc -l)
 SSD_DISKS=""
 HDD_DISKS=""
 
-COUNTER=0
-while [ $COUNTER -lt $((NUM_DISKS-1)) ]; do
+COUNTER=2
+while [ $COUNTER -lt $((NUM_DISKS+1)) ]; do
             TMPDISKINFO=$(echo "$DISK_INFO" | sed -n "$COUNTER p")
             if [[ "$TMPDISKINFO" == *0 ]]
                 then
-                    SSD_DISKS=$SSD_DISKS,$(echo "$TMPDISKINFO" | awk -F' ' '{print $1}')
+                    if [ $COUNTER -eq 2 ]
+                        then
+                          SSD_DISKS=$(echo "$TMPDISKINFO" | awk -F' ' '{print $1}')
+                        else
+                          SSD_DISKS=$SSD_DISKS,$(echo "$TMPDISKINFO" | awk -F' ' '{print $1}')
+                    fi
                 else
-                    HDD_DISKS=$HDD_DISKS,$(echo "$TMPDISKINFO" | awk -F' ' '{print $1}')
+                    if [ $COUNTER -eq 2 ]
+                        then
+                          HDD_DISKS=$(echo "$TMPDISKINFO" | awk -F' ' '{print $1}')
+                        else
+                          HDD_DISKS=$SSD_DISKS,$(echo "$TMPDISKINFO" | awk -F' ' '{print $1}')
+                    fi
             fi
-            let COUNTER=COUNTER+1 
+            let COUNTER=COUNTER+1
         done
-        
+
 OUT_VOLUME=$(df "$OUT_DIR_COMMON_BASE" | sed -n "2p" | awk -F' ' '{print $1}')
 
-BASEURL="http://mcswainsoftware.com/regAndroidBuild.php?"
-FULLURL=$BASEURL"cpu=$PROC_MODEL&numprocs=$NUMBER_OF_PROCS&distro=$DISTRO&using_ccache=$BUILD_USING_CCACHE&ccache_size=$CCACHE_SIZE&ssds=$SSD_DISKS&hdds=$HDD_DISKS&outvolume=$OUT_VOLUME"
-echo -e "$FULLURL"
-curl "$FULLURL"
+BASEURL="http://mcswainsoftware.com/regAndroidBuild.php"
+ARGSURL="cpu=$PROC_MODEL numprocs=$NUMBER_OF_PROCS distro=$DISTRO using_ccache=$BUILD_USING_CCACHE ccache_size=$CCACHE_SIZE ssds=$SSD_DISKS hdds=$HDD_DISKS outvolume=$OUT_VOLUME"
+echo -e "$BASEURL?$ARGSURL"
+# curl -data-urlencode "$ARGSURL" "$BASEURL"
