@@ -47,7 +47,7 @@ else
 fi
 
 BUILD_USING_CCACHE=$USE_CCACHE
-CCACHE_SIZE=$(ccache -s | grep "max cache size" | awk -F' ' '{print $4 " " $5}')
+CCACHE_SIZE=$(ccache -s | grep "cache size" | head -1 | awk -F' ' '{print $3 " " $4}')
 DISK_INFO=$(lsblk -d -o name,rota)
 NUM_DISKS=$(lsblk -d -o name,rota | wc -l)
 
@@ -76,9 +76,15 @@ while [ $COUNTER -lt $((NUM_DISKS+1)) ]; do
             let COUNTER=COUNTER+1
         done
 
-OUT_VOLUME=$(df "$OUT_DIR_COMMON_BASE" | sed -n "2p" | awk -F' ' '{print $1}')
+OUT_VOLUME=$(df "$OUT_DIR" | sed -n "2p" | awk -F' ' '{print $1}')
+SOURCE_VOLUME=
+
+TOTAL_MEMORY=$(free -t -h | sed -n "2p" | awk -F' ' '{print $2}')
+PLATFORM=$(python -c "import platform; print(platform.platform())")
+
+USING_PREBUILT_CHROMIUM=$PRODUCT_PREBUILT_WEBVIEWCHROMIUM
 
 BASEURL="http://mcswainsoftware.com/regAndroidBuild.php"
-ARGSURL="cpu=$PROC_MODEL numprocs=$NUMBER_OF_PROCS distro=$DISTRO using_ccache=$BUILD_USING_CCACHE ccache_size=$CCACHE_SIZE ssds=$SSD_DISKS hdds=$HDD_DISKS outvolume=$OUT_VOLUME"
+ARGSURL="cpu=$PROC_MODEL numprocs=$NUMBER_OF_PROCS distro=$DISTRO using_ccache=$BUILD_USING_CCACHE ccache_size=$CCACHE_SIZE ssds=$SSD_DISKS hdds=$HDD_DISKS outvolume=$OUT_VOLUME sourcevolume=$SOURCE_VOLUME totalmemory=$TOTAL_MEMORY platform=$PLATFORM prebuiltchromium=$USING_PREBUILT_CHROMIUM"
 echo -e "$BASEURL?$ARGSURL"
 # curl -data-urlencode "$ARGSURL" "$BASEURL"
