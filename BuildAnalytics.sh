@@ -18,7 +18,10 @@
 # along with BuildAnalytics. If not, see <http://www.gnu.org/licenses/>.
 
 
-PROC_MODEL=$(grep "model name" /proc/cpuinfo | awk -F':' '{print $2}' | head -n 1 | xargs)
+STARTTIME=$1
+ENDTIME=$(date +%s)
+
+PROC_MODEL=$(grep "model name" /proc/cpuinfo | awk -F':' '{print $2}' | head -n 1 | xargs | sed s/@/at/g)
 NUMBER_OF_PROCS=$(grep "physical id" /proc/cpuinfo | sort -u | wc -l)
 
 DISTRO="Unix-like"
@@ -63,28 +66,29 @@ while [ $COUNTER -lt $((NUM_DISKS+1)) ]; do
                         then
                           SSD_DISKS=$(echo "$TMPDISKINFO" | awk -F' ' '{print $1}')
                         else
-                          SSD_DISKS=$SSD_DISKS,$(echo "$TMPDISKINFO" | awk -F' ' '{print $1}')
+                          SSD_DISKS=$SSD_DISKS:$(echo "$TMPDISKINFO" | awk -F' ' '{print $1}')
                     fi
                 else
                     if [ $COUNTER -eq 2 ]
                         then
                           HDD_DISKS=$(echo "$TMPDISKINFO" | awk -F' ' '{print $1}')
                         else
-                          HDD_DISKS=$SSD_DISKS,$(echo "$TMPDISKINFO" | awk -F' ' '{print $1}')
+                          HDD_DISKS=$HDD_DISKS:$(echo "$TMPDISKINFO" | awk -F' ' '{print $1}')
                     fi
             fi
             let COUNTER=COUNTER+1
         done
 
 OUT_VOLUME=$(df "$OUT_DIR" | sed -n "2p" | awk -F' ' '{print $1}')
-SOURCE_VOLUME=
+SOURCE_VOLUME=$(df "$INPUT_DIR" | sed -n "2p" | awk -F' ' '{print $1}')
 
 TOTAL_MEMORY=$(free -t -h | sed -n "2p" | awk -F' ' '{print $2}')
 PLATFORM=$(python -c "import platform; print(platform.platform())")
 
+BUILD_TIME=$((ENDTIME-STARTTIME))
+
 USING_PREBUILT_CHROMIUM=$PRODUCT_PREBUILT_WEBVIEWCHROMIUM
 
-BASEURL="http://mcswainsoftware.com/regAndroidBuild.php"
-ARGSURL="cpu=$PROC_MODEL numprocs=$NUMBER_OF_PROCS distro=$DISTRO using_ccache=$BUILD_USING_CCACHE ccache_size=$CCACHE_SIZE ssds=$SSD_DISKS hdds=$HDD_DISKS outvolume=$OUT_VOLUME sourcevolume=$SOURCE_VOLUME totalmemory=$TOTAL_MEMORY platform=$PLATFORM prebuiltchromium=$USING_PREBUILT_CHROMIUM"
-echo -e "$BASEURL?$ARGSURL"
-# curl -data-urlencode "$ARGSURL" "$BASEURL"
+BASEURL="http://desolationrom.com/regAndroidBuild.php?"
+ARGSURL="cpu=$PROC_MODEL&numprocs=$NUMBER_OF_PROCS&distro=$DISTRO&using_ccache=$BUILD_USING_CCACHE&ccache_size=$CCACHE_SIZE&ssds=$SSD_DISKS&hdds=$HDD_DISKS&outvolume=$OUT_VOLUME&sourcevolume=$SOURCE_VOLUME&totalmemory=$TOTAL_MEMORY&platform=$PLATFORM&prebuiltchromium=$USING_PREBUILT_CHROMIUM&buildtime=$BUILD_TIME"
+curl "$BASEURL""$ARGSURL"
